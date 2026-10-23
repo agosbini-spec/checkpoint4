@@ -1,0 +1,197 @@
+{
+  "name": "Worker 1 - Pitch y Slack",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analizá el siguiente lead y armá la recomendación para el equipo:\n\n- Nombre:{{ $json.nombre }}\n- Email: {{ $json.ID }}\n- Categoría: {{ $json.categoria }}\n- Resumen: {{ $json.resumen }}\n- ID: {{ $json.ID }}",
+        "options": {
+          "systemMessage": "# ROL\nSos un asistente comercial B2B experto.\n\n# OBJETIVO\nAnalizar los datos de un lead calificado y redactar una propuesta de respuesta y recomendación rápida para el equipo de ventas en Slack.\n\n# INSTRUCCIONES\n1. Generá un resumen ejecutivo breve del lead.\n2. Redactá un borrador de pitch/respuesta personalizada listo para copiar y enviar al cliente.\n3. Formato: Usá Markdown claro para Slack (negritas, viñetas). NO uses formato JSON ni bloques de código.",
+          "maxIterations": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -672,
+        -48
+      ],
+      "id": "b5b796fa-3edf-4088-8877-4564135fa52e",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1056,
+        -48
+      ],
+      "id": "42832706-25c6-4d4e-82c6-54e796cfa4b8",
+      "name": "Worker 1 - Pitch y Slack"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -672,
+        128
+      ],
+      "id": "f253c4ac-e1fb-46e2-8b17-c01165262a22",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "kjmva9LLRt0hTFZJ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c15c3a3b-af8b-489d-915c-8b3a43c0bfad",
+              "name": "resumen",
+              "value": "={{ $json.resumen_sintetico }}",
+              "type": "string"
+            },
+            {
+              "id": "dd2909c1-1b2f-4d04-9ff8-8d822b5929fe",
+              "name": "nombre",
+              "value": "={{ $json.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "4f370371-47c1-486e-bf9d-1fafa0c847e2",
+              "name": "categoria",
+              "value": "={{ $json.categoria }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -864,
+        -48
+      ],
+      "id": "fed1264c-7711-4613-a67c-466c7c7b44e2",
+      "name": "Limpiar_payload"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0C03MYVBD0",
+          "mode": "list",
+          "cachedResultName": "oficina_comercial"
+        },
+        "text": "={{ $json.output }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.6,
+      "position": [
+        -352,
+        -48
+      ],
+      "id": "19508a36-91bf-43cc-86e2-c7fec010680b",
+      "name": "HITL",
+      "webhookId": "37d57d20-4d3e-484e-8341-86ed9033c031",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "TwLWaNTYbekGMsFQ",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "GOBERNANZA - HITL\n\nAcá, el agente redacta una respuesta para los clientes de mayor categoria y envia al canal de ventas_vip por Slack para su revision",
+        "height": 496,
+        "width": 576,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -720,
+        -224
+      ],
+      "typeVersion": 1,
+      "id": "b47fc346-0338-4710-94a4-bc62a65fce62",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "HITL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Worker 1 - Pitch y Slack": {
+      "main": [
+        [
+          {
+            "node": "Limpiar_payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar_payload": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "73a434a2-de65-4774-be3f-91b45a7ea7af",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b0f515eb5418692ee9e4007e0f88fac42ed937f0726fb74f74f00e678dc45b64"
+  },
+  "nodeGroups": [],
+  "id": "jbqqnRRv8a6W49fQ",
+  "tags": []
+}
