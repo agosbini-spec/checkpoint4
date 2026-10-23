@@ -1,0 +1,984 @@
+{
+  "name": "checkpoint4_Agostina_Bini",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analiza la siguiente entrada del usuario, evalúa los datos comerciales presentes y ejecuta la clasificación según las reglas del sistema.\n\nEntrada del usuario:{{ $('Limpiar_Payload').item.json.mensaje_usuario }}\n{{ $('Create a record').first().json.fields?.['Datos Clave'] || $json.fields?.['Datos Clave'] }}\nEmail: {{ $('Limpiar_Payload').item.json.Email }}",
+        "options": {
+          "systemMessage": "=# CONTEXTO HISTÓRICO DE LA SESIÓN\n{{ $('Contexto_compartido').item.json.contexto_compartido }}\n\nINSTRUCCIÓN SOBRE CONTEXTO COMPARTIDO: Revisa la información contenida dentro de [INICIO DE CONTEXTO COMPARTIDO] y [FIN DEL CONTEXTO COMPARTIDO]. Si el usuario ya proporcionó alguno de los 6 datos requeridos en sesiones anteriores, considéralos como ya recopilados y NO se los vuelvas a solicitar.\n\n# ROL Y OBJETIVO\nSos un calificador autónomo de leads B2B. Tu objetivo es interactuar con prospectos de forma profesional y amigable, recolectar sus datos clave y categorizarlos internamente.\n\n# DATOS REQUERIDOS (OBLIGATORIOS)\nPara dar por completada la calificación, debés recopilar (combinando la información del contexto histórico y los mensajes actuales) los siguientes 6 datos:\n1. Nombre\n2. Email\n3. Empresa\n4. Tamaño del equipo\n5. Presupuesto\n6. Necesidad puntual\n\n# CRITERIOS DE CATEGORIZACIÓN\n- HOT: Equipo > 10 personas Y presupuesto > $1.000 USD/mes.\n- WARM: Necesidad clara pero presupuesto menor o no definido.\n- COLD: Uso individual, estudiantes o sin presupuesto definido.\n- ESCALADO: Solicita atención humana directa, plantea un reclamo o plantea requerimientos técnicos muy complejos.\n- NUEVO SIN CLASIFICAR: Inicia una conversación, solo indicó el email sin nu¿ingun otro dato clave.\n\n# REGLAS PARA EL CAMPO `respuesta_al_usuario`\n1. Escribí de forma amigable, profesional, concisa y natural.\n2. Si FALTAN datos: Pedí de manera amable ÚNICAMENTE la información pendiente.\n3. Si los DATOS ESTÁN COMPLETOS: Confirmá la recepción y mencioná los próximos pasos.\n4. PROHIBICIÓN ESTRICTA: El texto de `respuesta_al_usuario` NUNCA debe incluir código JSON, ni mencionar categorías (\"HOT\", \"WARM\", \"COLD\", \"ESCALADO\"), ni usar términos como \"lead\", \"score\" o \"calificación\".\n5. PRECISIÓN: NUNCA inventes información que el usuario no haya proporcionado.\n\n# FORMATO DE SALIDA (ESTRICTO: SIEMPRE JSON)\nDebés analizar todo el historial de la conversación y el contexto compartido, y devolver SIEMPRE un único objeto JSON según corresponda:\n\n### OPCIÓN A: DATOS INCOMPLETOS\nSi falta al menos uno de los 6 datos requeridos, devuelve:\n{\n  \"datos_completos\": false,\n  \"respuesta_al_usuario\": \"¡Hola [Nombre]! Gracias por contactarnos. Para poder asesorarte de la mejor manera, ¿podrías indicarme [mencionar solo los datos faltantes]?\"\n}\n\n### OPCIÓN B: DATOS COMPLETOS\nSi ya contás con los 6 datos requeridos (entre el historial y la sesión actual), devuelve:\n{\n  \"datos_completos\": true,\n  \"categoria\": \"[HOT | WARM | COLD | ESCALADO]\",\n  \"datos_extraidos\": {\n    \"nombre\": \"...\",\n    \"email\": \"...\",\n    \"empresa\": \"...\",\n    \"tamano_equipo\": \"...\",\n    \"presupuesto\": \"...\",\n    \"necesidad\": \"...\"\n  },\n  \"resumen_sintetico\": \"Resumen conciso en 2 frases de la calificación del lead\",\n  \"respuesta_al_usuario\": \"¡Muchas gracias, [Nombre]! Hemos recibido toda tu información. Un representante se estará comunicando contigo a la brevedad.\"\n}",
+          "maxIterations": 5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -384,
+        -624
+      ],
+      "id": "5243bfd8-b4fe-4446-aadf-056744886c0e",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.categoria }}",
+                    "rightValue": "HOT|ESCALADO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    },
+                    "id": "d483695b-59e6-4e1e-9286-56b1ad7ef48d"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Worker 1 - Slack"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6292c62f-988a-4453-a3ca-2cf5536cb313",
+                    "leftValue": "={{ $json.categoria }}",
+                    "rightValue": "WARM|COLD",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Worker 2 - Google Sheets"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Sin clasificar "
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        -640
+      ],
+      "id": "83ef7585-8535-4017-b59d-e8ef2aee079e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Create a record').item.json.fields['ID Email'] }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -288,
+        -400
+      ],
+      "id": "b6a9cd5c-6bec-467e-b27d-64d60be1365b",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "jbqqnRRv8a6W49fQ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/jbqqnRRv8a6W49fQ",
+          "cachedResultName": "Worker 1 - Pitch y Slack"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        752,
+        -848
+      ],
+      "id": "2a16b80d-7f74-40da-9014-fb0e20350937",
+      "name": "Call 'Worker 1 - Slack'"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "zRNRCX6dzVWuWAuJ",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/zRNRCX6dzVWuWAuJ",
+          "cachedResultName": "Worker 2 - Google Sheets"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        -624
+      ],
+      "id": "eda1052c-bf89-47b5-bbcb-4eb24ab4ed75",
+      "name": "Call 'Worker 2 - Google Sheets'"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {
+          "maxOutputTokens": 2048,
+          "temperature": 0.4
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -384,
+        -400
+      ],
+      "id": "472cb15f-4528-446b-830e-6652766af67e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "kjmva9LLRt0hTFZJ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const textCompleto = $json.output || \"\";\n\n// 1. Limpiar las marcas de formato markdown (```json y ```)\nconst cleanJsonString = textCompleto\n  .replace(/```json/gi, '')\n  .replace(/```/g, '')\n  .trim();\n\n// 2. Parsear el texto a un objeto JSON real\nlet datosParseados = {};\n\ntry {\n  datosParseados = JSON.parse(cleanJsonString);\n} catch (error) {\n  // En caso de que la IA responda texto plano sin JSON\n  datosParseados = {\n    datos_completos: false,\n    respuesta_al_usuario: textCompleto\n  };\n}\n\n// 3. Retornar el objeto listo para que n8n reconozca cada propiedad\nreturn {\n  json: datosParseados\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -624
+      ],
+      "id": "63b8c515-c894-412e-b562-b4fc820bd40a",
+      "name": "descomponer_datos"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8b53399a-d01b-4b38-926a-4732b19a2722",
+              "name": "mensaje_usuario",
+              "value": "={{ $json.body.mensaje }}",
+              "type": "string"
+            },
+            {
+              "id": "c65f16c3-1003-443d-b5ef-8c4fa3c9415a",
+              "name": "Email",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "4c170cad-3e8d-4d5b-8230-5aa184f7db0c",
+              "name": "nombre",
+              "value": "={{ $json.body.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "8585d8e6-20d5-49c6-909f-9b00ec9bd3e9",
+              "name": "empresa",
+              "value": "={{ $json.body.empresa }}",
+              "type": "string"
+            },
+            {
+              "id": "99d465c8-1bd7-441d-adbd-2e5c8642156c",
+              "name": "equipo_tamano",
+              "value": "={{ $json.body.equipo_tamano }}",
+              "type": "string"
+            },
+            {
+              "id": "74973005-4014-4b2e-8ba9-b4bcfd17f5f5",
+              "name": "presupuesto",
+              "value": "={{ $json.body.presupuesto }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -1408,
+        -720
+      ],
+      "id": "6a1f0f94-6f01-4caf-b83b-d85e2852097d",
+      "name": "Limpiar_Payload"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "23493253-b134-4eae-82bb-96178f08265a",
+              "name": "contexto_compartido",
+              "value": "=[INICIO DE CONTEXTO COMPARTIDO]\n- Resumen previo: {{ $json.fields?.['Resumen Consolidado'] || 'Cliente nuevo en su primera consulta.' }}\n- Categoria: {{ $json.fields?.['Categoria'] || 'NUEVO SIN CLASIFICAR' }}\n- Datos clave guardados: {{ $('Create a record').first().json.fields?.['Datos Clave'] || $json.fields?.['Datos Clave'] }}\n- Ultima consulta: {{ $('Limpiar_Payload').first().json.mensaje_usuario }}\n- Email: {{ $('Limpiar_Payload').first().json.Email }}\n- Nombre: {{ $('Limpiar_Payload').first().json.nombre }}\n[FIN DE CONTEXTO COMPARTIDO]\n\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -608,
+        -624
+      ],
+      "id": "06fb4cbd-bda5-4afd-bf08-99d33a0d4315",
+      "name": "Contexto_compartido"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "58553e35-a419-4c4b-af08-da7455ff5a4c",
+              "name": "ID Email",
+              "value": "={{ $('descomponer_datos').item.json.datos_extraidos.email }}",
+              "type": "string"
+            },
+            {
+              "id": "f2f08633-996d-4820-9ed6-4602a721139f",
+              "name": "nombre",
+              "value": "={{ $('descomponer_datos').item.json.datos_extraidos.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "a451362f-094b-4466-9734-33e9bc799fcd",
+              "name": "categoria",
+              "value": "={{ $('descomponer_datos').item.json.categoria }}",
+              "type": "string"
+            },
+            {
+              "id": "258cc148-c74a-49ae-be47-620d3198cad9",
+              "name": "resumen_sintetico",
+              "value": "={{ $('descomponer_datos').item.json.resumen_sintetico }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        560,
+        -848
+      ],
+      "id": "d78eeca1-85c0-4534-9f4d-8ac45bd39dff",
+      "name": "SET contexto worker 1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "774560f7-e1f6-41c7-8a0d-70baf527b172",
+              "name": "ID Email",
+              "value": "={{ $json.datos_extraidos.email }}",
+              "type": "string"
+            },
+            {
+              "id": "ec205dac-47e8-4387-8521-eb40cc8ba9a3",
+              "name": "nombre",
+              "value": "={{ $json.datos_extraidos.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "db8e12de-da73-4fd2-8388-5a8dc725641f",
+              "name": "categoria",
+              "value": "={{ $json.categoria }}",
+              "type": "string"
+            },
+            {
+              "id": "f7c767e5-c5d4-4745-9bc8-157ccf6971a9",
+              "name": "resumen_sintetico",
+              "value": "={{ $json.resumen_sintetico }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        576,
+        -624
+      ],
+      "id": "f1457128-dd8a-4747-9e48-20c17e2fbb5a",
+      "name": "SET contexto worker 2"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "8b49f606-dd75-417a-ab9f-1b6fc6dc9fd9",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1888,
+        -640
+      ],
+      "id": "93dff9fa-8c94-460b-857f-4357c6eda1eb",
+      "name": "Webhook",
+      "webhookId": "8b49f606-dd75-417a-ab9f-1b6fc6dc9fd9"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a6938d39-7194-4dc0-be00-06abe044adc2",
+              "leftValue": "={{ $json.fields?.['ID Email'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1056,
+        -640
+      ],
+      "id": "ddfc2785-87b8-41db-a582-9c57d9e2892e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appb3x41B3NYXFJR8",
+          "mode": "list",
+          "cachedResultName": "Base de datos relacional",
+          "cachedResultUrl": "https://airtable.com/appb3x41B3NYXFJR8"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblSX93ZjND9ffxeG",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/appb3x41B3NYXFJR8/tblSX93ZjND9ffxeG"
+        },
+        "filterByFormula": "={ID Email} = '{{ $json.Email }}'",
+        "options": {},
+        "sort": {
+          "property": []
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -1216,
+        -640
+      ],
+      "id": "8fef30b5-609c-4f66-9d44-86eee7974989",
+      "name": "Search records",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "TaFpV7BF8YHCVpi9",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appb3x41B3NYXFJR8",
+          "mode": "list",
+          "cachedResultName": "Base de datos relacional",
+          "cachedResultUrl": "https://airtable.com/appb3x41B3NYXFJR8"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblSX93ZjND9ffxeG",
+          "mode": "list",
+          "cachedResultName": "Table 1",
+          "cachedResultUrl": "https://airtable.com/appb3x41B3NYXFJR8/tblSX93ZjND9ffxeG"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha de Actualización": "={{ $now.toFormat('yyyy-MM-dd') }}",
+            "Categoria": "NUEVO SIN CLASIFICAR",
+            "Ultima consulta": "={{ $('Limpiar_Payload').item.json.mensaje_usuario }}",
+            "Nombre": "={{ $('Limpiar_Payload').item.json.nombre }}",
+            "ID Email": "={{ $('Limpiar_Payload').item.json.Email }}",
+            "Datos Clave": "=Empresa: {{ $('Limpiar_Payload').item.json.empresa }}\nPresupuesto: {{ $('Limpiar_Payload').item.json.presupuesto }}\nTamaño del equipo: {{ $('Limpiar_Payload').item.json.equipo_tamano }}",
+            "Resumen Consolidado": "Pendiente"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID Email",
+              "displayName": "ID Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Nombre",
+              "displayName": "Nombre",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Datos Clave",
+              "displayName": "Datos Clave",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Resumen Consolidado",
+              "displayName": "Resumen Consolidado",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Categoria",
+              "displayName": "Categoria",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "HOT",
+                  "value": "HOT"
+                },
+                {
+                  "name": "WARM",
+                  "value": "WARM"
+                },
+                {
+                  "name": "COLD",
+                  "value": "COLD"
+                },
+                {
+                  "name": "ESCALADO",
+                  "value": "ESCALADO"
+                },
+                {
+                  "name": "NUEVO SIN CLASIFICAR",
+                  "value": "NUEVO SIN CLASIFICAR"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Fecha de Actualización",
+              "displayName": "Fecha de Actualización",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Ultima consulta",
+              "displayName": "Ultima consulta",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        -832,
+        -736
+      ],
+      "id": "28583fe3-69f6-4c63-ac86-366bd9ff4d7b",
+      "name": "Create a record",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "TaFpV7BF8YHCVpi9",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.datos_extraidos.email }}",
+        "subject": "Solicitud recibida",
+        "emailType": "text",
+        "message": "={{ $json.respuesta_al_usuario }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        -816
+      ],
+      "id": "9b6c884f-77cd-4e2e-a5df-276c6901aa91",
+      "name": "Casilla de soporte",
+      "webhookId": "ab2bf6ef-c843-4efc-ac06-098c9bddc26d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qQmaNMOGaFJWG9ix",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0C03MYVBD0",
+          "mode": "list",
+          "cachedResultName": "oficina_comercial"
+        },
+        "text": "=Esta consulta no se pudo clasificar a traves del Agente.\nContactar al cliente directamente.\n\nEmail: {{ $('descomponer_datos').item.json.datos_extraidos.email }}\n\nNombre: {{ $('descomponer_datos').item.json.datos_extraidos.nombre }}\n\nResumen: {{ $('descomponer_datos').item.json.resumen_sintetico }}\n\nNecesidad: {{ $('descomponer_datos').item.json.datos_extraidos.necesidad }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.6,
+      "position": [
+        576,
+        -432
+      ],
+      "id": "2725b683-9439-4086-8cd4-8dabe58ea426",
+      "name": "Canal del equipo",
+      "webhookId": "d6f8c9af-ec36-4be2-8afe-566305f05a57",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "TwLWaNTYbekGMsFQ",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "5df1064a-ca48-438e-b1a6-9d97097999a3",
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "test@test.com",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "id": "0e1088a4-2484-4c4f-b3db-cbb6c3afd349",
+              "leftValue": "={{ $json.body.mensaje }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1664,
+        -640
+      ],
+      "id": "9fa0863f-82db-4c4a-8a7d-064be7fff855",
+      "name": "If1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1408,
+        -528
+      ],
+      "id": "4cf77aff-200a-459e-a101-57a6d59baca8",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "content": "LOOKUP\n\nEste es el paso de búsqueda antes de crear un nuevo registro para no duplicar contactos",
+        "height": 432,
+        "width": 150
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1232,
+        -928
+      ],
+      "typeVersion": 1,
+      "id": "cbff27d5-4bf8-47ef-891c-53501faf6ab9",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "CONTROL DE ERRORES\n\nEl nodo If filtra el tipo de mail y si el mensaje no llego vacio antes de continuar. Si no es un mail valido, detiene la operacion",
+        "height": 400,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1696,
+        -912
+      ],
+      "typeVersion": 1,
+      "id": "c27c87ae-023c-4240-8252-62b49bd7ba94",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "LIMPIEZA DE DATOS",
+        "height": 224,
+        "width": 150,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1424,
+        -816
+      ],
+      "typeVersion": 1,
+      "id": "8891a023-df5f-4a0a-9f3d-257c73a21621",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "LIMPIEZA DE DATOS",
+        "height": 480,
+        "width": 150,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        544,
+        -960
+      ],
+      "typeVersion": 1,
+      "id": "3f660e3c-5958-413c-a93d-9973ef2c5b34",
+      "name": "Sticky Note3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "descomponer_datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "SET contexto worker 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SET contexto worker 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Canal del equipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call 'Worker 1 - Slack'": {
+      "main": [
+        []
+      ]
+    },
+    "Call 'Worker 2 - Google Sheets'": {
+      "main": [
+        []
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "descomponer_datos": {
+      "main": [
+        [
+          {
+            "node": "Casilla de soporte",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpiar_Payload": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contexto_compartido": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET contexto worker 1": {
+      "main": [
+        [
+          {
+            "node": "Call 'Worker 1 - Slack'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SET contexto worker 2": {
+      "main": [
+        [
+          {
+            "node": "Call 'Worker 2 - Google Sheets'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create a record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Contexto_compartido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a record": {
+      "main": [
+        [
+          {
+            "node": "Contexto_compartido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Limpiar_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "8599c938-da52-49bc-85bb-2a32dd96e76e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b0f515eb5418692ee9e4007e0f88fac42ed937f0726fb74f74f00e678dc45b64"
+  },
+  "nodeGroups": [],
+  "id": "m1Ns8GYaDfYYUrJq",
+  "tags": []
+}
